@@ -26,7 +26,7 @@ function! s:GetCurrentBufferContents()
         let l:line = substitute(l:line, '\', '\\\\', 'g')
         call add(l:temp, l:line)
     endfor
-    let l:escaped_buffer_contents = join(l:temp, '\n')
+    let l:escaped_buffer_contents = join(l:temp, "\n")
 
     " Take care of escaping quotes
     let l:escaped_buffer_contents = substitute(l:escaped_buffer_contents, '"', '\\"', 'g')
@@ -34,7 +34,7 @@ function! s:GetCurrentBufferContents()
 endfunction
 
 function! s:GetReformatString(CurrentBufferContents)
-    return '(print (cljfmt.core/reformat-string "' . a:CurrentBufferContents . '" nil))'
+    return '(cljfmt.core/reformat-string "' . a:CurrentBufferContents . '" nil)'
 endfunction
 
 function! s:FilterOutput(lines, ...)
@@ -51,7 +51,8 @@ function! s:FilterOutput(lines, ...)
                     \ || line == "該当するautocommandは存在しません"
             continue
         endif
-
+        let line = substitute(line, '\\"', '"', 'g')
+        let line = substitute(line, '\\\\', '\\', 'g')
         call add(l:output, line)
     endfor
     if l:join_result
@@ -63,18 +64,14 @@ endfunction
 
 function! s:GetFormattedFile()
     let l:bufcontents = s:GetCurrentBufferContents()
-    redir => l:cljfmt_output
     try
-        silent! call fireplace#session_eval(s:GetReformatString(l:bufcontents))
+        let l:cljfmt_output = fireplace#session_eval(s:GetReformatString(l:bufcontents))[1:-2]
     catch /^Clojure:.*/
-        redir END
         throw "fmterr"
     catch
-      redir END
       throw v:exception
     endtry
-    redir END
-    return s:FilterOutput(split(l:cljfmt_output, "\n"), 0)
+    return s:FilterOutput(split(l:cljfmt_output, '\\n'), 0)
 endfunction
 
 function! s:replaceBuffer(content) abort
